@@ -16,7 +16,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 	hass.data.setdefault(DOMAIN, {})
 	hass.data[DOMAIN][CONF_USERNAME] = entry.data.get(CONF_USERNAME)
 	hass.data[DOMAIN][CONF_PASSWORD] = entry.data.get(CONF_PASSWORD)
-	_LOGGER.debug(f"Orefree config entry setup: username={entry.data.get(CONF_USERNAME)}")
+	hass.data[DOMAIN]["port"] = entry.data.get("port", 8000)
+	_LOGGER.debug(f"Orefree config entry setup: username={entry.data.get(CONF_USERNAME)}, port={entry.data.get('port', 8000)}")
 
 	# Create and store the coordinator once
 	from .sensor import create_orefree_coordinator

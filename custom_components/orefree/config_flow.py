@@ -3,6 +3,8 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD
 
+CONF_PORT = "port"
+
 DOMAIN = "orefree"
 
 class OreFreeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -20,6 +22,7 @@ class OreFreeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         data_schema = vol.Schema({
             vol.Required(CONF_USERNAME): str,
             vol.Required(CONF_PASSWORD): str,
+            vol.Required(CONF_PORT, default=8000): int,
         })
         return self.async_show_form(
             step_id="user",

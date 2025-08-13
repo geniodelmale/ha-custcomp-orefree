@@ -20,6 +20,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class OrefreeBinarySensor(CoordinatorEntity, BinarySensorEntity):
     _attr_name = "Orefree Active"
     _attr_unique_id = "orefree_active"
+    _attr_icon = "mdi:clock-fast"
 
     def __init__(self, coordinator):
         super().__init__(coordinator)

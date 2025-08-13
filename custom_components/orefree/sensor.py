@@ -12,18 +12,20 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Coor
 
 _LOGGER = logging.getLogger(__name__)
 
-def build_api_url(username, password):
+def build_api_url(username, password, port):
     from urllib.parse import quote
-    return f"http://homeassistant.local:8000/fetchHours?username={quote(username)}&password={quote(password)}&type=time"
+    return f"http://homeassistant.local:{port}/fetchHours?username={quote(username)}&password={quote(password)}&type=time"
 
 
 async def fetch_orefree_data(hass):
-    username = hass.data.get("orefree", {}).get("username")
-    password = hass.data.get("orefree", {}).get("password")
+    domain_data = hass.data.get("orefree", {})
+    username = domain_data.get("username")
+    password = domain_data.get("password")
+    port = domain_data.get("port", 8000)
     if not username or not password:
         _LOGGER.error("Orefree username or password not set in config entry.")
         return {}
-    api_url = build_api_url(username, password)
+    api_url = build_api_url(username, password, port)
     async with aiohttp.ClientSession() as session:
         async with session.get(api_url) as response:
             text = await response.text()
@@ -33,11 +35,13 @@ async def fetch_orefree_data(hass):
                 start_time = datetime.strptime(start_str, "%H:%M").time()
                 end_time = datetime.strptime(end_str, "%H:%M").time()
                 is_on = start_time <= now <= end_time
+                last_read = datetime.now().isoformat()
                 return {
                     "text": text,
                     "start": start_str,
                     "end": end_str,
-                    "on": is_on
+                    "on": is_on,
+                    "last_read": last_read
                 }
             except Exception as e:
                 _LOGGER.error(f"Failed to parse orefree time range: {e}")
@@ -45,7 +49,8 @@ async def fetch_orefree_data(hass):
                     "text": text,
                     "start": None,
                     "end": None,
-                    "on": False
+                    "on": False,
+                    "last_read": datetime.now().isoformat()
                 }
 
 
@@ -101,12 +106,26 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([
         OrefreeTextSensor(coordinator),
         OrefreeStartSensor(coordinator),
-        OrefreeEndSensor(coordinator)
+        OrefreeEndSensor(coordinator),
+        OrefreeLastReadSensor(coordinator)
     ])
+class OrefreeLastReadSensor(CoordinatorEntity, SensorEntity):
+    _attr_name = "Orefree Last Read"
+    _attr_unique_id = "orefree_last_read"
+    _attr_icon = "mdi:clock-check"
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+
+    @property
+    def native_value(self):
+        data = self.coordinator.data or {}
+        return data.get("last_read", None)
 
 class OrefreeTextSensor(CoordinatorEntity, SensorEntity):
     _attr_name = "Orefree Text"
     _attr_unique_id = "orefree_text"
+    _attr_icon = "mdi:text"
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
@@ -119,6 +138,7 @@ class OrefreeTextSensor(CoordinatorEntity, SensorEntity):
 class OrefreeStartSensor(CoordinatorEntity, SensorEntity):
     _attr_name = "Orefree Start"
     _attr_unique_id = "orefree_start"
+    _attr_icon = "mdi:clock-start"
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
@@ -131,6 +151,7 @@ class OrefreeStartSensor(CoordinatorEntity, SensorEntity):
 class OrefreeEndSensor(CoordinatorEntity, SensorEntity):
     _attr_name = "Orefree End"
     _attr_unique_id = "orefree_end"
+    _attr_icon = "mdi:clock-end"
 
     def __init__(self, coordinator):
         super().__init__(coordinator)

@@ -7,24 +7,12 @@ This custom component exposes:
 - `sensor.orefree_text`: String sensor
 - `sensor.orefree_start`: Datetime sensor
 - `sensor.orefree_end`: Datetime sensor
+- 'sensor.orefree_last_read': Datetime sensor
 
-All data is fetched from a REST API.
+All data is fetched from the [OreFree Scraper Addon](https://github.com/geniodelmale/ha-addon-orefree) that should be installed before running the component.
 
 ## Installation
 
 1. Copy the `orefree` folder to your Home Assistant `custom_components` directory.
-2. Add the integration via configuration.yaml or UI.
-
-## Configuration Example
-
-```yaml
-# configuration.yaml
-sensor:
-  - platform: orefree
-binary_sensor:
-  - platform: orefree
-```
-
-## API
-
-Replace the API URL in `sensor.py` and `binary_sensor.py` with your actual endpoint.
+2. Restart Home Assistant
+3. Add the integration via UI, and provide username and password that you use on website.
