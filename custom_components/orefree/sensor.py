@@ -82,11 +82,11 @@ async def create_orefree_coordinator(hass):
     await coordinator._schedule_refresh()
     return coordinator
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    coordinator = hass.data.get("orefree_coordinator")
-    if coordinator is None:
-        coordinator = await create_orefree_coordinator(hass)
-        hass.data["orefree_coordinator"] = coordinator
+
+# For config flow support
+async def async_setup_entry(hass, entry, async_add_entities):
+    coordinator = await create_orefree_coordinator(hass)
+    hass.data["orefree_coordinator"] = coordinator
     async_add_entities([
         OrefreeTextSensor(coordinator),
         OrefreeStartSensor(coordinator),
