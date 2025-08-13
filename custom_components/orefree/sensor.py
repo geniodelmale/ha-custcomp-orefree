@@ -72,10 +72,33 @@ async def create_orefree_coordinator(hass):
     class CustomCoordinator(DataUpdateCoordinator):
         async def _async_update_data(self):
             result = await async_update_data()
+            # After API call, schedule next refresh using latest data
+            now = datetime.now()
+            is_active = False
+            if result and result.get("on", False):
+                is_active = True
+            if is_active:
+                tomorrow = now + timedelta(days=1)
+                next_refresh = tomorrow.replace(hour=0, minute=0, second=30, microsecond=0)
+            else:
+                if now.hour == 0 and (now.minute < 1 or (now.minute == 0 and now.second < 30)):
+                    next_refresh = now.replace(hour=0, minute=0, second=30, microsecond=0)
+                else:
+                    if now.hour < 20 or (now.hour == 20 and (now.minute < 45 or (now.minute == 45 and now.second < 30))):
+                        if now.minute < 45 or (now.minute == 45 and now.second < 30):
+                            next_refresh = now.replace(minute=45, second=30, microsecond=0)
+                        else:
+                            next_refresh = (now + timedelta(hours=1)).replace(minute=45, second=30, microsecond=0)
+                    else:
+                        tomorrow = now + timedelta(days=1)
+                        next_refresh = tomorrow.replace(hour=0, minute=0, second=30, microsecond=0)
+            self._next_refresh = next_refresh.isoformat()
+            delay = (next_refresh - now).total_seconds()
+            self._unsub_refresh = self.hass.loop.call_later(delay, self._handle_refresh_interval)
+
             # Store next refresh time in data for sensor
             if hasattr(self, "_next_refresh"):
                 if result is None:
-                    # If None, keep previous data but update next_refresh
                     prev = self.data if hasattr(self, "data") else {}
                     prev = dict(prev)
                     prev["next_refresh"] = self._next_refresh
@@ -83,35 +106,6 @@ async def create_orefree_coordinator(hass):
                 result = dict(result)
                 result["next_refresh"] = self._next_refresh
             return result if result is not None else (self.data if hasattr(self, "data") else {})
-
-        async def _schedule_refresh(self):
-            now = datetime.now()
-            # Always schedule next refresh as before
-            if now.hour == 0 and (now.minute < 1 or (now.minute == 0 and now.second < 30)):
-                next_refresh = now.replace(hour=0, minute=0, second=30, microsecond=0)
-            else:
-                if now.hour < 20 or (now.hour == 20 and (now.minute < 45 or (now.minute == 45 and now.second < 30))):
-                    if now.minute < 45 or (now.minute == 45 and now.second < 30):
-                        next_refresh = now.replace(minute=45, second=30, microsecond=0)
-                    else:
-                        next_refresh = (now + timedelta(hours=1)).replace(minute=45, second=30, microsecond=0)
-                else:
-                    tomorrow = now + timedelta(days=1)
-                    next_refresh = tomorrow.replace(hour=0, minute=0, second=30, microsecond=0)
-            self._next_refresh = next_refresh.isoformat()
-            delay = (next_refresh - now).total_seconds()
-            self._unsub_refresh = self.hass.loop.call_later(delay, self._handle_refresh_interval)
-
-            # After API is read, if orefree is active, reschedule for next day's 00:00:30
-            is_active = False
-            if hasattr(self, "data") and self.data:
-                is_active = self.data.get("on", False)
-            if is_active:
-                tomorrow = now + timedelta(days=1)
-                next_refresh = tomorrow.replace(hour=0, minute=0, second=30, microsecond=0)
-                self._next_refresh = next_refresh.isoformat()
-                delay = (next_refresh - now).total_seconds()
-                self._unsub_refresh = self.hass.loop.call_later(delay, self._handle_refresh_interval)
 
     coordinator = CustomCoordinator(
         hass,
