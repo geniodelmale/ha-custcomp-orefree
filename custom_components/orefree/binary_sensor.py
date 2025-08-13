@@ -9,11 +9,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 _LOGGER = logging.getLogger(__name__)
 
 
+
 # For config flow support
 async def async_setup_entry(hass, entry, async_add_entities):
-    from .sensor import create_orefree_coordinator
-    coordinator = await create_orefree_coordinator(hass)
-    hass.data["orefree_coordinator"] = coordinator
+    coordinator = hass.data.get("orefree_coordinator")
     async_add_entities([
         OrefreeBinarySensor(coordinator)
     ])
