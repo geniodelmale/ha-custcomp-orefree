@@ -72,10 +72,17 @@ async def create_orefree_coordinator(hass):
     class CustomCoordinator(DataUpdateCoordinator):
         async def _async_update_data(self):
             result = await async_update_data()
-            if result is None:
-                # If None, keep previous data
-                return self.data if hasattr(self, "data") else {}
-            return result
+            # Store next refresh time in data for sensor
+            if hasattr(self, "_next_refresh"):
+                if result is None:
+                    # If None, keep previous data but update next_refresh
+                    prev = self.data if hasattr(self, "data") else {}
+                    prev = dict(prev)
+                    prev["next_refresh"] = self._next_refresh
+                    return prev
+                result = dict(result)
+                result["next_refresh"] = self._next_refresh
+            return result if result is not None else (self.data if hasattr(self, "data") else {})
 
         async def _schedule_refresh(self):
             now = datetime.now()
@@ -84,6 +91,7 @@ async def create_orefree_coordinator(hass):
                 next_refresh = now.replace(second=30, microsecond=0)
             else:
                 next_refresh = next_hour
+            self._next_refresh = next_refresh.isoformat()
             delay = (next_refresh - now).total_seconds()
             self._unsub_refresh = self.hass.loop.call_later(delay, self._handle_refresh_interval)
 
@@ -107,8 +115,21 @@ async def async_setup_entry(hass, entry, async_add_entities):
         OrefreeTextSensor(coordinator),
         OrefreeStartSensor(coordinator),
         OrefreeEndSensor(coordinator),
-        OrefreeLastReadSensor(coordinator)
+        OrefreeLastReadSensor(coordinator),
+        OrefreeNextRefreshSensor(coordinator)
     ])
+class OrefreeNextRefreshSensor(CoordinatorEntity, SensorEntity):
+    _attr_name = "Orefree Next Refresh"
+    _attr_unique_id = "orefree_next_refresh"
+    _attr_icon = "mdi:timer"
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+
+    @property
+    def native_value(self):
+        data = self.coordinator.data or {}
+        return data.get("next_refresh", None)
 class OrefreeLastReadSensor(CoordinatorEntity, SensorEntity):
     _attr_name = "Orefree Last Read"
     _attr_unique_id = "orefree_last_read"
