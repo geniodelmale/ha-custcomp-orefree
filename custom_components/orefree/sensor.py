@@ -2,20 +2,31 @@
 Defines orefree sensors for Home Assistant.
 """
 
+
 import logging
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, CoordinatorEntity
 import asyncio
 import aiohttp
+from datetime import datetime, timedelta
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, CoordinatorEntity
 
 _LOGGER = logging.getLogger(__name__)
-API_URL = "http://homeassistant.local:8000/fetchHours?username=%2B393316372674&password=Cat1a.enel&type=time"
 
-async def fetch_orefree_data():
+def build_api_url(username, password):
+    from urllib.parse import quote
+    return f"http://homeassistant.local:8000/fetchHours?username={quote(username)}&password={quote(password)}&type=time"
+
+
+async def fetch_orefree_data(hass):
+    username = hass.data.get("orefree", {}).get("username")
+    password = hass.data.get("orefree", {}).get("password")
+    if not username or not password:
+        _LOGGER.error("Orefree username or password not set in config entry.")
+        return {}
+    api_url = build_api_url(username, password)
     async with aiohttp.ClientSession() as session:
-        async with session.get(API_URL) as response:
+        async with session.get(api_url) as response:
             text = await response.text()
-            # Expecting format "9:00 - 12:00"
             try:
                 start_str, end_str = [t.strip() for t in text.split('-')]
                 now = datetime.now().time()
@@ -37,42 +48,39 @@ async def fetch_orefree_data():
                     "on": False
                 }
 
-async def create_orefree_coordinator(hass):
-    import datetime
-    from datetime import datetime, time
 
-async def async_update_data():
+async def create_orefree_coordinator(hass):
+    async def async_update_data():
         try:
-            return await fetch_orefree_data()
+            return await fetch_orefree_data(hass)
         except Exception as err:
             _LOGGER.error(f"Error fetching orefree data: {err}")
             return {}
 
-class CustomCoordinator(DataUpdateCoordinator):
-    async def _async_update_data(self):
-        return await async_update_data()
+    class CustomCoordinator(DataUpdateCoordinator):
+        async def _async_update_data(self):
+            return await async_update_data()
 
-    async def _schedule_refresh(self):
-        now = datetime.datetime.now()
-        next_hour = (now.replace(minute=0, second=30, microsecond=0) + datetime.timedelta(hours=1))
-        if now.second < 30:
-            next_refresh = now.replace(second=30, microsecond=0)
-        else:
-            next_refresh = next_hour
-        delay = (next_refresh - now).total_seconds()
-        self._unsub_refresh = self.hass.loop.call_later(delay, self._handle_refresh_interval)
+        async def _schedule_refresh(self):
+            now = datetime.now()
+            next_hour = (now.replace(minute=0, second=30, microsecond=0) + timedelta(hours=1))
+            if now.second < 30:
+                next_refresh = now.replace(second=30, microsecond=0)
+            else:
+                next_refresh = next_hour
+            delay = (next_refresh - now).total_seconds()
+            self._unsub_refresh = self.hass.loop.call_later(delay, self._handle_refresh_interval)
 
-        coordinator = CustomCoordinator(
-            hass,
-            _LOGGER,
-            name="orefree_coordinator",
-            update_method=async_update_data,
-            update_interval=None
-        )
-        
-        await coordinator.async_config_entry_first_refresh()
-        coordinator._schedule_refresh()
-        return coordinator
+    coordinator = CustomCoordinator(
+        hass,
+        _LOGGER,
+        name="orefree_coordinator",
+        update_method=async_update_data,
+        update_interval=None
+    )
+    await coordinator.async_config_entry_first_refresh()
+    await coordinator._schedule_refresh()
+    return coordinator
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     coordinator = hass.data.get("orefree_coordinator")

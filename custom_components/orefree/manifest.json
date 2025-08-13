@@ -4,5 +4,6 @@
   "version": "0.1.0",
   "requirements": [],
   "dependencies": [],
-  "codeowners": ["@geniodelmale"]
+  "codeowners": ["@geniodelmale"],
+  "config_flow": true
 }

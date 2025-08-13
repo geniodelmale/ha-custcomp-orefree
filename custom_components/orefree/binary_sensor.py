@@ -28,4 +28,4 @@ class OrefreeBinarySensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def is_on(self):
         data = self.coordinator.data or {}
-        return data.get("is_on", False)
+        return data.get("on", False)
