@@ -86,11 +86,21 @@ async def create_orefree_coordinator(hass):
 
         async def _schedule_refresh(self):
             now = datetime.now()
-            next_hour = (now.replace(minute=0, second=30, microsecond=0) + timedelta(hours=1))
-            if now.second < 30:
-                next_refresh = now.replace(second=30, microsecond=0)
+            # If before 00:00:30, schedule for 00:00:30 today
+            if now.hour == 0 and (now.minute < 1 or (now.minute == 0 and now.second < 30)):
+                next_refresh = now.replace(hour=0, minute=0, second=30, microsecond=0)
             else:
-                next_refresh = next_hour
+                # Find next :45:30 after current hour, or next 00:00:30 if after 20:45:30
+                if now.hour < 20 or (now.hour == 20 and (now.minute < 45 or (now.minute == 45 and now.second < 30))):
+                    # Next :45:30 in current or next hour
+                    if now.minute < 45 or (now.minute == 45 and now.second < 30):
+                        next_refresh = now.replace(minute=45, second=30, microsecond=0)
+                    else:
+                        next_refresh = (now + timedelta(hours=1)).replace(minute=45, second=30, microsecond=0)
+                else:
+                    # After 20:45:30, schedule for next day's 00:00:30
+                    tomorrow = now + timedelta(days=1)
+                    next_refresh = tomorrow.replace(hour=0, minute=0, second=30, microsecond=0)
             self._next_refresh = next_refresh.isoformat()
             delay = (next_refresh - now).total_seconds()
             self._unsub_refresh = self.hass.loop.call_later(delay, self._handle_refresh_interval)
@@ -102,13 +112,19 @@ async def create_orefree_coordinator(hass):
         update_method=async_update_data,
         update_interval=None
     )
-    # Set _next_refresh before first refresh
+    # Set _next_refresh before first refresh (same logic as above)
     now = datetime.now()
-    next_hour = (now.replace(minute=0, second=30, microsecond=0) + timedelta(hours=1))
-    if now.second < 30:
-        next_refresh = now.replace(second=30, microsecond=0)
+    if now.hour == 0 and (now.minute < 1 or (now.minute == 0 and now.second < 30)):
+        next_refresh = now.replace(hour=0, minute=0, second=30, microsecond=0)
     else:
-        next_refresh = next_hour
+        if now.hour < 20 or (now.hour == 20 and (now.minute < 45 or (now.minute == 45 and now.second < 30))):
+            if now.minute < 45 or (now.minute == 45 and now.second < 30):
+                next_refresh = now.replace(minute=45, second=30, microsecond=0)
+            else:
+                next_refresh = (now + timedelta(hours=1)).replace(minute=45, second=30, microsecond=0)
+        else:
+            tomorrow = now + timedelta(days=1)
+            next_refresh = tomorrow.replace(hour=0, minute=0, second=30, microsecond=0)
     coordinator._next_refresh = next_refresh.isoformat()
     await coordinator.async_config_entry_first_refresh()
     await coordinator._schedule_refresh()
