@@ -74,7 +74,7 @@ class OrefreeCoordinator(DataUpdateCoordinator):
             update_interval=None,
         )
         self._next_refresh = None
-        self._unsub_refresh = None
+        self._timer_handle = None
 
     async def _async_update_data(self):
         """Update data via API endpoint."""
@@ -91,26 +91,14 @@ class OrefreeCoordinator(DataUpdateCoordinator):
                     return prev_data
                 return {}
             
-            # If orefree is active, schedule next refresh for tomorrow 00:00:30
-            if new_data.get("on", False):
-                tomorrow = datetime.now() + timedelta(days=1)
-                next_refresh = tomorrow.replace(hour=0, minute=0, second=30, microsecond=0)
-                self._next_refresh = next_refresh.isoformat()
-                
-                # Cancel any existing scheduled update and reschedule
-                if self._unsub_refresh:
-                    self._unsub_refresh.cancel()
-                    
-                delay = (next_refresh - datetime.now()).total_seconds()
-                self._unsub_refresh = self.hass.loop.call_later(
-                    delay, 
-                    self._handle_refresh_interval
-                )
-                _LOGGER.info(f"OreFree is active, next refresh scheduled for {next_refresh}")
+            # Calculate next refresh if not already set
+            if self._next_refresh is None:
+                _LOGGER.info("Next refresh not set, calculating now...")
+                await self._schedule_next_refresh(new_data.get("on", False))
             
-            # Add next_refresh to the data
-            if self._next_refresh:
-                new_data["next_refresh"] = self._next_refresh
+            # Always add next_refresh to the data
+            new_data["next_refresh"] = self._next_refresh or "Not scheduled"
+            _LOGGER.info(f"Returning data with next_refresh: {new_data['next_refresh']}")
                 
             return new_data
             
@@ -123,6 +111,45 @@ class OrefreeCoordinator(DataUpdateCoordinator):
                     prev_data["next_refresh"] = self._next_refresh
                 return prev_data
             return {}
+
+    async def _schedule_next_refresh(self, is_currently_active):
+        """Schedule the next refresh based on current state and time."""
+        # Cancel any existing scheduled update
+        if self._timer_handle:
+            self._timer_handle.cancel()
+            self._timer_handle = None
+        
+        if is_currently_active:
+            # If orefree is active, schedule next refresh for tomorrow 00:00:30
+            tomorrow = datetime.now() + timedelta(days=1)
+            next_refresh = tomorrow.replace(hour=0, minute=0, second=30, microsecond=0)
+            _LOGGER.info(f"OreFree is active, next refresh scheduled for {next_refresh}")
+        else:
+            # If not active, use the regular scheduling logic
+            next_refresh = self._calculate_next_refresh_time()
+            _LOGGER.info(f"OreFree is inactive, next refresh scheduled for {next_refresh}")
+        
+        old_next_refresh = self._next_refresh
+        self._next_refresh = next_refresh.isoformat()
+        
+        # Log if the next refresh time changed
+        if old_next_refresh != self._next_refresh:
+            _LOGGER.info(f"Next refresh time updated from {old_next_refresh} to {self._next_refresh}")
+        
+        # Schedule the refresh
+        delay = (next_refresh - datetime.now()).total_seconds()
+        if delay > 0:
+            self._timer_handle = self.hass.loop.call_later(
+                delay, 
+                lambda: asyncio.create_task(self._refresh_and_reschedule())
+            )
+            _LOGGER.info(f"Refresh scheduled in {delay:.1f} seconds")
+        else:
+            # If the calculated time is in the past, schedule for immediate refresh
+            self._timer_handle = self.hass.loop.call_soon(
+                lambda: asyncio.create_task(self._refresh_and_reschedule())
+            )
+            _LOGGER.info("Scheduling immediate refresh")
 
     def _calculate_next_refresh_time(self):
         """Calculate the next refresh time based on current time."""
@@ -146,38 +173,50 @@ class OrefreeCoordinator(DataUpdateCoordinator):
 
     async def schedule_refresh(self):
         """Schedule the next refresh based on the refresh logic."""
-        next_refresh = self._calculate_next_refresh_time()
-        self._next_refresh = next_refresh.isoformat()
+        # Use current data state if available, otherwise assume inactive
+        is_currently_active = False
+        if hasattr(self, "data") and self.data:
+            is_currently_active = self.data.get("on", False)
         
-        delay = (next_refresh - datetime.now()).total_seconds()
-        if delay > 0:
-            self._unsub_refresh = self.hass.loop.call_later(
-                delay, 
-                self._handle_refresh_interval
-            )
-            _LOGGER.info(f"Next refresh scheduled for {next_refresh}")
-        else:
-            # If the calculated time is in the past, schedule for immediate refresh
-            self._unsub_refresh = self.hass.loop.call_soon(self._handle_refresh_interval)
-            _LOGGER.info("Scheduling immediate refresh")
+        _LOGGER.info(f"Scheduling refresh, currently active: {is_currently_active}")
+        await self._schedule_next_refresh(is_currently_active)
 
-    def _handle_refresh_interval(self):
-        """Handle refresh interval callback."""
-        asyncio.create_task(self.async_request_refresh())
+    async def _refresh_and_reschedule(self):
+        """Refresh data and reschedule next refresh."""
+        _LOGGER.info("Executing scheduled refresh...")
+        await self.async_request_refresh()
+        # After refresh, we need to check the new state and reschedule
+        if self.data:
+            await self._schedule_next_refresh(self.data.get("on", False))
+            # Force update the data with the new next_refresh time
+            if self._next_refresh and self.data:
+                self.data["next_refresh"] = self._next_refresh
+                # Notify listeners that data has changed
+                self.async_set_updated_data(self.data)
 
     async def async_setup(self):
         """Set up the coordinator."""
         # Perform initial refresh
         await self.async_config_entry_first_refresh()
         
-        # Schedule the next refresh
+        # Schedule the next refresh (this should set _next_refresh)
         await self.schedule_refresh()
+        
+        # If we have data, update it with the next refresh time
+        if self.data and self._next_refresh:
+            self.data["next_refresh"] = self._next_refresh
+            self.async_set_updated_data(self.data)
+
+    async def force_refresh_now(self):
+        """Force an immediate refresh for testing."""
+        _LOGGER.info("Forcing immediate refresh...")
+        await self._refresh_and_reschedule()
 
     async def async_shutdown(self):
         """Clean up coordinator resources."""
-        if self._unsub_refresh:
-            self._unsub_refresh.cancel()
-            self._unsub_refresh = None
+        if self._timer_handle:
+            self._timer_handle.cancel()
+            self._timer_handle = None
 
 
 async def create_orefree_coordinator(hass):
