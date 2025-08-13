@@ -52,14 +52,25 @@ async def fetch_orefree_data(hass):
 async def create_orefree_coordinator(hass):
     async def async_update_data():
         try:
-            return await fetch_orefree_data(hass)
+            new_data = await fetch_orefree_data(hass)
+            # If fetch failed or returned empty/invalid, keep previous data
+            if not new_data or new_data.get("text") is None:
+                _LOGGER.warning("Keeping previous orefree data due to fetch error or invalid response.")
+                # self.data is only available in the coordinator context
+                # We'll access it in CustomCoordinator below
+                return None  # Signal to use previous data
+            return new_data
         except Exception as err:
             _LOGGER.error(f"Error fetching orefree data: {err}")
-            return {}
+            return None  # Signal to use previous data
 
     class CustomCoordinator(DataUpdateCoordinator):
         async def _async_update_data(self):
-            return await async_update_data()
+            result = await async_update_data()
+            if result is None:
+                # If None, keep previous data
+                return self.data if hasattr(self, "data") else {}
+            return result
 
         async def _schedule_refresh(self):
             now = datetime.now()
