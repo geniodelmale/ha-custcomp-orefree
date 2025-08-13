@@ -102,6 +102,14 @@ async def create_orefree_coordinator(hass):
         update_method=async_update_data,
         update_interval=None
     )
+    # Set _next_refresh before first refresh
+    now = datetime.now()
+    next_hour = (now.replace(minute=0, second=30, microsecond=0) + timedelta(hours=1))
+    if now.second < 30:
+        next_refresh = now.replace(second=30, microsecond=0)
+    else:
+        next_refresh = next_hour
+    coordinator._next_refresh = next_refresh.isoformat()
     await coordinator.async_config_entry_first_refresh()
     await coordinator._schedule_refresh()
     return coordinator
