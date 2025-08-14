@@ -1,18 +1,32 @@
-
-# Orefree Home Assistant Custom Component
+# OreFree Home Assistant Custom Component
 
 This custom component exposes:
 
-- `binary_sensor.orefree`: Binary sensor
-- `sensor.orefree_text`: String sensor
-- `sensor.orefree_start`: Datetime sensor
-- `sensor.orefree_end`: Datetime sensor
-- 'sensor.orefree_last_read': Datetime sensor
+- `binary_sensor.orefree_active`: Binary sensor updated every minute that tells you if OreFree is active or not at the moment
+- `sensor.orefree_text`: String sensor containing today's OreFree hours, e.g. '10:00-13:00'
+- `sensor.orefree_start`: String sensor containing start hour, e.g. '10:00'
+- `sensor.orefree_end`: String sensor containing end hour, e.g. '13:00'
+- `sensor.orefree_last_read`: Datetime sensor with the date of last successful API read
+- `sensor.orefree_next_refresh`: Datetime sensor with the date of next API read
 
-All data is fetched from the [OreFree Scraper Addon](https://github.com/geniodelmale/ha-addon-orefree) that should be installed before running the component.
 
-## Installation
+## Install Add-On BEFORE installing the custom component
+
+All data is fetched from the OreFree website using [OreFree Scraper Addon](https://github.com/geniodelmale/ha-addon-orefree) that should be installed before running the component.
+
+## Installation using HACS
+
+1. Open HACS
+2. Click on the 3 dots in the top right corner.
+3. Select "Custom repositories"
+4. Add the URL to this repository.
+5. Click the "ADD" button.
+6. Install "OreFree integration for Home Assistant" using HACS
+7. Restart Home Assistant
+8. Add the integration via UI, and provide username and password that you use on website, and eventually change the port used in the Add-On.
+
+## Manual Installation
 
 1. Copy the `orefree` folder to your Home Assistant `custom_components` directory.
 2. Restart Home Assistant
-3. Add the integration via UI, and provide username and password that you use on website.
+3. Add the integration via UI, and provide username and password that you use on website, and eventually change the port used in the Add-On.
