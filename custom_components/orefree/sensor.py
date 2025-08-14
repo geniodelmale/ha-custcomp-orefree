@@ -37,9 +37,11 @@ class OrefreeTextSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self):
-        """Return the state of the sensor."""
+        """Return the state of the sensor without any space characters."""
         data = self.coordinator.data or {}
-        return data.get("text", "Unknown")
+        text = data.get("text", "Unknown")
+        # Remove all space characters
+        return text.replace(" ", "") if text != "Unknown" else text
 
 
 class OrefreeStartSensor(CoordinatorEntity, SensorEntity):
