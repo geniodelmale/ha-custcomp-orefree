@@ -9,6 +9,14 @@ This custom component exposes:
 - `sensor.orefree_last_read`: Datetime sensor with the date of last successful API read
 - `sensor.orefree_next_refresh`: Datetime sensor with the date of next API read
 
+> [!WARNING]
+> This is still **under construction**. It might be unstable and use it on your
+> own risk.
+
+> [!WARNING]
+> This is the first time I write Python code and extend Home Assistant. The code might
+> not be ideal. I used GitHub Copilot for 95% of the code. And it works!
+
 
 ## Install Add-On BEFORE installing the custom component
 
