@@ -125,7 +125,7 @@ class OrefreeCoordinator(DataUpdateCoordinator):
             next_refresh = tomorrow.replace(hour=0, minute=0, second=30, microsecond=0)
             _LOGGER.info(f"OreFree is active, next refresh scheduled for {next_refresh}")
         else:
-            # If not active, use the regular scheduling logic
+            # If not active, use the regular scheduling logic with start time check
             next_refresh = self._calculate_next_refresh_time()
             _LOGGER.info(f"OreFree is inactive, next refresh scheduled for {next_refresh}")
         
@@ -152,12 +152,31 @@ class OrefreeCoordinator(DataUpdateCoordinator):
             _LOGGER.info("Scheduling immediate refresh")
 
     def _calculate_next_refresh_time(self):
-        """Calculate the next refresh time based on current time."""
+        """Calculate the next refresh time based on current time and start time."""
         now = datetime.now()
         
         # If before 00:00:30, schedule for 00:00:30 today
         if now.hour == 0 and (now.minute < 1 or (now.minute == 0 and now.second < 30)):
             return now.replace(hour=0, minute=0, second=30, microsecond=0)
+        
+        # If we have start time and current time is after start time but before 20:45, 
+        # schedule for next day 00:00:30 (schedule is locked after start time)
+        if hasattr(self, "data") and self.data:
+            start_time_str = self.data.get("start")
+            if start_time_str:
+                try:
+                    start_time = datetime.strptime(start_time_str, "%H:%M").time()
+                    current_time = now.time()
+                    
+                    # If current time is after start time and before 20:45, go to next day
+                    # (no point checking again today as schedule is already determined)
+                    if (current_time > start_time and 
+                        (now.hour < 20 or (now.hour == 20 and now.minute < 45))):
+                        tomorrow = now + timedelta(days=1)
+                        _LOGGER.info(f"Current time {current_time} is after OreFree start time {start_time} and before 20:45, scheduling for next day (schedule locked)")
+                        return tomorrow.replace(hour=0, minute=0, second=30, microsecond=0)
+                except (ValueError, TypeError) as e:
+                    _LOGGER.warning(f"Failed to parse start time '{start_time_str}': {e}")
         
         # Find next :45:30 after current hour, or next 00:00:30 if after 20:45:30
         if now.hour < 20 or (now.hour == 20 and (now.minute < 45 or (now.minute == 45 and now.second < 30))):
