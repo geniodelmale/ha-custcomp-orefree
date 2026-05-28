@@ -31,6 +31,7 @@ async def fetch_orefree_data(hass):
         return {}
     
     api_url = build_api_url(username, password, port, host)
+    _LOGGER.debug(f"Fetching OreFree data from API URL: {api_url}")
     
     try:
         session = async_get_clientsession(hass)
