@@ -25,6 +25,7 @@ async def fetch_orefree_data(hass):
     password = domain_data.get("password")
     port = domain_data.get("port", 8000)
     host = domain_data.get("host") or "homeassistant.local"
+    timeout_seconds = domain_data.get("timeout", 120)
     
     if not username or not password:
         _LOGGER.error("Orefree username or password not set in config entry.")
@@ -35,7 +36,7 @@ async def fetch_orefree_data(hass):
     
     try:
         session = async_get_clientsession(hass)
-        timeout = aiohttp.ClientTimeout(total=120)
+        timeout = aiohttp.ClientTimeout(total=timeout_seconds)
         async with session.get(api_url, timeout=timeout) as response:
             text = await response.text()
             try:

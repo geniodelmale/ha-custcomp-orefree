@@ -3,7 +3,9 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, CONF_HOST
 
 CONF_PORT = "port"
+CONF_TIMEOUT = "timeout"
 DEFAULT_HOST = "homeassistant.local"
+DEFAULT_TIMEOUT = 120
 
 DOMAIN = "orefree"
 
@@ -25,6 +27,7 @@ class OreFreeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_PASSWORD): str,
             vol.Required(CONF_PORT, default=8000): int,
             vol.Optional(CONF_HOST, default=DEFAULT_HOST): str,
+            vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): int,
         })
         return self.async_show_form(
             step_id="user",
