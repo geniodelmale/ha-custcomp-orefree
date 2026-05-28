@@ -32,7 +32,8 @@ async def fetch_orefree_data(hass):
     
     api_url = build_api_url(username, password, port, host)
     
-    try:session = async_get_clientsession(hass)
+    try:
+        session = async_get_clientsession(hass)
         timeout = aiohttp.ClientTimeout(total=15)
         async with session.get(api_url, timeout=timeout) as response:
             text = await response.text()
@@ -65,8 +66,7 @@ async def fetch_orefree_data(hass):
         _LOGGER.error(f"Failed to fetch orefree data from {host}:{port}: {e}")
         return {}
     except Exception as e:
-        _LOGGER.error(f"Unexpected error fetching
-        _LOGGER.error(f"Failed to fetch orefree data: {e}")
+        _LOGGER.error(f"Unexpected error fetching orefree data: {e}")
         return {}
 
 
