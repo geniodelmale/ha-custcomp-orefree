@@ -7,6 +7,7 @@ import asyncio
 import aiohttp
 from datetime import datetime, timedelta
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,34 +32,40 @@ async def fetch_orefree_data(hass):
     
     api_url = build_api_url(username, password, port, host)
     
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url) as response:
-                text = await response.text()
-                try:
-                    start_str, end_str = [t.strip() for t in text.split('-')]
-                    now = datetime.now().time()
-                    start_time = datetime.strptime(start_str, "%H:%M").time()
-                    end_time = datetime.strptime(end_str, "%H:%M").time()
-                    is_on = start_time <= now <= end_time
-                    last_read = datetime.now().isoformat()
-                    return {
-                        "text": text,
-                        "start": start_str,
-                        "end": end_str,
-                        "on": is_on,
-                        "last_read": last_read
-                    }
-                except Exception as e:
-                    _LOGGER.error(f"Failed to parse orefree time range: {e}")
-                    return {
-                        "text": text,
-                        "start": None,
-                        "end": None,
-                        "on": False,
-                        "last_read": datetime.now().isoformat()
-                    }
+    try:session = async_get_clientsession(hass)
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with session.get(api_url, timeout=timeout) as response:
+            text = await response.text()
+            try:
+                start_str, end_str = [t.strip() for t in text.split('-')]
+                now = datetime.now().time()
+                start_time = datetime.strptime(start_str, "%H:%M").time()
+                end_time = datetime.strptime(end_str, "%H:%M").time()
+                is_on = start_time <= now <= end_time
+                last_read = datetime.now().isoformat()
+                return {
+                    "text": text,
+                    "start": start_str,
+                    "end": end_str,
+                    "on": is_on,
+                    "last_read": last_read
+                }
+            except Exception as e:
+                _LOGGER.error(f"Failed to parse orefree time range: {e}")
+                return {
+                    "text": text,
+                    "start": None,
+                    "end": None,
+                    "on": False,
+                    "last_read": datetime.now().isoformat()
+                }
+    except asyncio.CancelledError:
+        raise
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        _LOGGER.error(f"Failed to fetch orefree data from {host}:{port}: {e}")
+        return {}
     except Exception as e:
+        _LOGGER.error(f"Unexpected error fetching
         _LOGGER.error(f"Failed to fetch orefree data: {e}")
         return {}
 
