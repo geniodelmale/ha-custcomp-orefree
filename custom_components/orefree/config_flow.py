@@ -1,6 +1,5 @@
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
 from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, CONF_HOST
 
 CONF_PORT = "port"
@@ -12,7 +11,6 @@ class OreFreeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for OreFree."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
 
     async def async_step_user(self, user_input=None):
         errors = {}
