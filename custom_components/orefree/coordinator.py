@@ -63,7 +63,10 @@ async def fetch_orefree_data(hass):
                 }
     except asyncio.CancelledError:
         raise
-    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+    except (aiohttp.ClientError) as e:
+        _LOGGER.error(f"Failed to fetch orefree data from {host}:{port}: {e}")
+        return {}
+    except (asyncio.TimeoutError) as e:
         _LOGGER.error(f"Failed to fetch orefree data from {host}:{port}: {e}")
         return {}
     except Exception as e:
