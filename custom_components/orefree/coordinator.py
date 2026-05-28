@@ -11,10 +11,10 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
-def build_api_url(username, password, port):
+def build_api_url(username, password, port, host="homeassistant.local"):
     """Build the API URL for OreFree service."""
     from urllib.parse import quote
-    return f"http://homeassistant.local:{port}/fetchHours?username={quote(username)}&password={quote(password)}&type=time"
+    return f"http://{host}:{port}/fetchHours?username={quote(username)}&password={quote(password)}&type=time"
 
 
 async def fetch_orefree_data(hass):
@@ -23,12 +23,13 @@ async def fetch_orefree_data(hass):
     username = domain_data.get("username")
     password = domain_data.get("password")
     port = domain_data.get("port", 8000)
+    host = domain_data.get("host") or "homeassistant.local"
     
     if not username or not password:
         _LOGGER.error("Orefree username or password not set in config entry.")
         return {}
     
-    api_url = build_api_url(username, password, port)
+    api_url = build_api_url(username, password, port, host)
     
     try:
         async with aiohttp.ClientSession() as session:
