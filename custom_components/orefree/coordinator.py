@@ -35,7 +35,7 @@ async def fetch_orefree_data(hass):
     
     try:
         session = async_get_clientsession(hass)
-        timeout = aiohttp.ClientTimeout(total=15)
+        timeout = aiohttp.ClientTimeout(total=120)
         async with session.get(api_url, timeout=timeout) as response:
             text = await response.text()
             try:
