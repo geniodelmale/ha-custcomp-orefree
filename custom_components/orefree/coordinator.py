@@ -230,13 +230,23 @@ class OrefreeCoordinator(DataUpdateCoordinator):
                 self.async_set_updated_data(self.data)
 
     async def async_setup(self):
-        """Set up the coordinator."""
-        # Perform initial refresh
-        await self.async_config_entry_first_refresh()
-        
+        """Set up the coordinator.
+
+        The initial data fetch is performed in the background so that a slow or
+        unreachable endpoint does not block (and get cancelled with) the config
+        entry setup. Entities will report as unavailable until the first
+        successful refresh completes.
+        """
+        self.hass.async_create_task(self._async_initial_refresh())
+
+    async def _async_initial_refresh(self):
+        """Perform the first refresh and schedule the next one in the background."""
+        # Perform initial refresh (does not raise; failures keep empty data)
+        await self.async_refresh()
+
         # Schedule the next refresh (this should set _next_refresh)
         await self.schedule_refresh()
-        
+
         # If we have data, update it with the next refresh time
         if self.data and self._next_refresh:
             self.data["next_refresh"] = self._next_refresh
