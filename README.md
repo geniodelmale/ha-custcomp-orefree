@@ -14,8 +14,7 @@ This custom component exposes:
 > own risk.
 
 > [!WARNING]
-> This is the first time I write Python code and extend Home Assistant. The code might
-> not be ideal. I used GitHub Copilot for 95% of the code. And it works!
+> I used GitHub Copilot for all the code. Blame me for errors a GH Copilot with Opus for the features!
 
 
 ## Install Add-On BEFORE installing the custom component
